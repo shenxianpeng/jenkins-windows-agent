@@ -2,7 +2,7 @@
   <id>jenkins8080agent</id>
   <name>Jenkins Agent for jenkins:8080</name>
   <description>This service runs the agent process connected to jenkins:8080</description>
-  <executable>D:\tools\jdk-11.0.15.10-hotspot\bin\java.exe</executable>
+  <executable>D:\tools\openjdk-17\bin\java.exe</executable>
   <arguments>-jar D:\tools\jenkins-agent\agent.jar -jnlpUrl http://jenkins:8080/computer/windows/jenkins-agent.jnlp -secret b66b6def580864901a50b9c8daaeea96f9e7f5537f02eb58bf5f6d1deae4155c -workDir "d:\tools\jenkins-agent"</arguments>
   <log mode="roll" />
   <onfailure action="restart" />
