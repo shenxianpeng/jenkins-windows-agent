@@ -17,6 +17,11 @@ git clone https://github.com/shenxianpeng/jenkins-windows-agent.git && cd jenkin
 main.bat
 ```
 
+It will download jenkins-agent.exe and openjdk.
+
+> [!NOTE]  
+> The download Java version is 17, which is supported by newer versions of the Jenkins controller.
+
 ## Manual update `jenkins-agent.xml`
 
 Before installing `jenkins-agent.exe` as a service, you need to update `jenkins-agent.xml` following attributes.
