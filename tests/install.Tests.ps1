@@ -261,6 +261,7 @@ Describe 'Get-FailureHint' {
         @{ Log = 'java.lang.UnsupportedClassVersionError: hudson/remoting/Launcher has been compiled by a more recent version'; Hint = '*too old*' }
         @{ Log = 'javax.net.ssl.SSLHandshakeException: PKIX path building failed'; Hint = '*-UseWindowsTrustStore*' }
         @{ Log = 'SEVERE: The server rejected the connection: None of the protocols were accepted'; Hint = '*rejected the agent*' }
+        @{ Log = "WARNING: Did not receive X-Remoting-Capability header`nINFO: Failed to connect: Handshake error."; Hint = '*refused the WebSocket connection*' }
         @{ Log = 'java.net.ConnectException: Connection refused: connect'; Hint = '*-WebSocket*' }
         @{ Log = 'java.net.UnknownHostException: jenkins.example.com'; Hint = '*resolve*' }
     ) {

@@ -146,7 +146,7 @@ the agent log and a hint. The service stays installed and keeps retrying.
 | Symptom | What to do |
 | --- | --- |
 | `requires Java 21 or newer` | Leave out `-JavaVersion`, or pick one from [Which Java?](#which-java). |
-| `The controller rejected the agent` | Copy the agent name and secret again from the node page. |
+| `The controller rejected the agent` / `refused the WebSocket connection` | Copy the agent name and secret again from the node page. |
 | `cannot reach the inbound TCP port` | Use `-WebSocket`, or open the TCP agent port (*Manage Jenkins > Security > Agents*) in firewalls. |
 | `PKIX path building failed` | The controller uses a company CA. If Windows trusts it, add `-UseWindowsTrustStore`. |
 | `already connected` | Another process uses this agent name, for example a service from an older installation. |
@@ -200,7 +200,7 @@ Jenkins controller on a Windows runner, installs the agent the way a user would 
 | Agent Java | Controller | Also covers |
 | --- | --- | --- |
 | 8 | 2.346.3 | old `agent.jar` (`-jnlpUrl`), spaces in agent name and path, `main.bat` |
-| 11 | 2.462.3 | killing `java.exe`: Windows restarts the service and the agent reconnects |
+| 11 | 2.462.3 | killing `java.exe`: Windows restarts the service and the agent reconnects; wrong-secret diagnostics over TCP |
 | 17 | 2.541.3 | WebSocket only (TCP port disabled) |
 | 21 | latest LTS | secured controller, local service account, upgrade to Java 25, uninstall |
 | 25 (JDK) | latest LTS | WebSocket, script block one-liner |

@@ -334,6 +334,8 @@ function Get-FailureHint([string] $Log, [string] $AgentName) {
            Hint = "Java does not trust the controller's HTTPS certificate. If the company CA is installed in Windows, run the script again with -UseWindowsTrustStore." }
         @{ Pattern = 'None of the protocols were accepted|rejected the connection|Invalid secret|HTTP response code: 403|403 Forbidden'
            Hint = 'The controller rejected the agent. Copy -AgentName and -Secret again from the node page, and check that the node uses "Launch agent by connecting it to the controller".' }
+        @{ Pattern = 'Did not receive X-Remoting-Capability header|Handshake error'
+           Hint = 'The controller refused the WebSocket connection. Copy -AgentName and -Secret again from the node page. If they are right, check that proxies between this machine and Jenkins allow WebSocket.' }
         @{ Pattern = 'FileNotFoundException|HTTP response code: 404|404 Not Found'
            Hint = "The controller has no inbound agent called '$AgentName'. Check -AgentName and the node's launch method." }
         @{ Pattern = 'Connection refused|connect timed out|ConnectException|NoRouteToHostException|TCP port|port is disabled'
