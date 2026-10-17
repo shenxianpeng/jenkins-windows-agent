@@ -69,7 +69,11 @@ if ($line -ge 357) {
     $pluginManager = Join-Path $CacheDir "jenkins-plugin-manager-$pluginManagerVersion.jar"
     Save-File -Urls @("https://github.com/jenkinsci/plugin-installation-manager-tool/releases/download/$pluginManagerVersion/jenkins-plugin-manager-$pluginManagerVersion.jar") `
         -OutFile $pluginManager -Sha256 $pluginManagerSha256
-    & $java -jar $pluginManager --war $war --plugin-download-directory (Join-Path $JenkinsHome 'plugins') --plugins instance-identity
+    # The update center only serves plugin versions for recent cores, so pin
+    # the last versions that support older ones.
+    $plugins = @('instance-identity')
+    if ($line -lt 479) { $plugins = @('instance-identity:201.vd2a_b_5a_468a_a_6', 'bouncycastle-api:2.30.1.78.1-233.vfdcdeb_0a_08a_a_') }
+    & $java -jar $pluginManager --war $war --plugin-download-directory (Join-Path $JenkinsHome 'plugins') --latest false --plugins @plugins
     if ($LASTEXITCODE -ne 0) { throw "Plugin installation failed ($LASTEXITCODE)" }
 }
 
@@ -92,24 +96,37 @@ if ($Secured) {
     Add-GitHubEnv 'E2E_ADMIN_PASSWORD' $password
 }
 
+# A process started from a step does not survive the step on Windows runners,
+# so start Jenkins through WMI, outside the step, from a script that carries
+# the environment.
 $outLog = Join-Path $JenkinsHome 'jenkins.out.log'
 $errLog = Join-Path $JenkinsHome 'jenkins.err.log'
-$arguments = @(
-    '-Djenkins.install.runSetupWizard=false'
-    '-Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true'
-    '-jar', "`"$war`"", "--httpPort=$Port"
-)
+$launcher = Join-Path $JenkinsHome 'start-jenkins.cmd'
+$lines = @('@echo off')
+foreach ($name in 'JENKINS_HOME', 'E2E_JENKINS_URL', 'E2E_AGENT_NAME', 'E2E_REMOTE_FS', 'E2E_WEBSOCKET', 'E2E_SECURED', 'E2E_ADMIN_USER', 'E2E_ADMIN_PASSWORD') {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    if ($value) { $lines += "set `"$name=$value`"" }
+}
+$lines += "`"$java`" -Djenkins.install.runSetupWizard=false " +
+    '-Dhudson.security.csrf.GlobalCrumbIssuerConfiguration.DISABLE_CSRF_PROTECTION=true ' +
+    "-jar `"$war`" --httpPort=$Port > `"$outLog`" 2> `"$errLog`""
+Set-Content -LiteralPath $launcher -Value $lines -Encoding ascii
+
 Write-Host "Starting Jenkins $Version on $url with $java"
-$process = Start-Process -FilePath $java -ArgumentList $arguments -RedirectStandardOutput $outLog `
-    -RedirectStandardError $errLog -PassThru -WindowStyle Hidden
+$started = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+    CommandLine = "cmd.exe /d /c `"$launcher`""
+    CurrentDirectory = $JenkinsHome
+}
+if ($started.ReturnValue -ne 0) { throw "Could not start Jenkins (Win32_Process.Create returned $($started.ReturnValue))" }
+$launcherPid = [int] $started.ProcessId
 
 $secretFile = Join-Path $JenkinsHome 'e2e-agent-secret.txt'
 $deadline = (Get-Date).AddMinutes(5)
 $ready = $false
 while (-not $ready) {
-    if ($process.HasExited) {
-        Get-Content -LiteralPath $errLog -Tail 100
-        throw "Jenkins exited with code $($process.ExitCode)"
+    if (-not (Get-Process -Id $launcherPid -ErrorAction SilentlyContinue)) {
+        Get-Content -LiteralPath $errLog -Tail 100 -ErrorAction SilentlyContinue
+        throw 'Jenkins exited during startup'
     }
     if ((Get-Date) -gt $deadline) {
         Get-Content -LiteralPath $errLog -Tail 100
@@ -130,4 +147,4 @@ Write-Host "::add-mask::$((Get-Content -LiteralPath $secretFile -Raw).Trim())"
 Add-GitHubEnv 'E2E_JENKINS_URL' $url
 Add-GitHubEnv 'E2E_JENKINS_HOME' $JenkinsHome
 Add-GitHubEnv 'E2E_SECRET_FILE' $secretFile
-Write-Host "Jenkins $($response.Headers['X-Jenkins']) is ready (pid $($process.Id))"
+Write-Host "Jenkins $($response.Headers['X-Jenkins']) is ready"

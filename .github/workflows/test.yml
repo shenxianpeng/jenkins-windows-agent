@@ -173,8 +173,9 @@ jobs:
         id: jenkins
         run: |
           $version = '${{ matrix.jenkins }}'
-          if ($version -eq 'lts') { $version = (Invoke-RestMethod https://updates.jenkins.io/stable/latestCore.txt).Trim() }
-          if ($version -eq 'weekly') { $version = (Invoke-RestMethod https://updates.jenkins.io/current/latestCore.txt).Trim() }
+          # Invoke-WebRequest: Invoke-RestMethod would turn '2.590' into the number 2.59.
+          if ($version -eq 'lts') { $version = (Invoke-WebRequest https://updates.jenkins.io/stable/latestCore.txt).Content.Trim() }
+          if ($version -eq 'weekly') { $version = (Invoke-WebRequest https://updates.jenkins.io/current/latestCore.txt).Content.Trim() }
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Jenkins $version"
 
