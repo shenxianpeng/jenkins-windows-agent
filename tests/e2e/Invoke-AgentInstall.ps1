@@ -147,3 +147,6 @@ if ($ExpectFailure) {
 } else {
     Write-Host "ok - install.ps1 via $Entry succeeded"
 }
+# The workflow fails a step whose last native command failed, even when that
+# failure was the expected outcome.
+exit 0

@@ -202,7 +202,9 @@ jobs:
 
       - name: Fails clearly when Java is too old for the controller
         if: matrix.negative
-        run: ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -JavaVersion 17 -ExpectFailure 'requires Java 21 or newer'
+        run: |
+          ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -JavaVersion 17 -ExpectFailure 'requires Java 21 or newer'
+          if (Test-Path -LiteralPath $env:E2E_INSTALL_DIR) { throw 'The refused install created files' }
 
       - name: Fails clearly with a wrong secret
         if: matrix.negative
