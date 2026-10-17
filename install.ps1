@@ -373,6 +373,15 @@ function Assert-Prerequisite {
     }
 }
 
+function Repair-ModulePath {
+    # Windows PowerShell started from PowerShell 7 (for example main.bat run in
+    # a pwsh window) inherits the PowerShell 7 module paths and then cannot
+    # load some of its own cmdlets.
+    if ($PSVersionTable.PSEdition -ne 'Desktop' -or -not $env:PSModulePath) { return }
+    $paths = @($env:PSModulePath -split ';' | Where-Object { $_ -and $_ -notmatch '\\PowerShell\\' })
+    $env:PSModulePath = $paths -join ';'
+}
+
 function Enable-Tls12 {
     # Windows PowerShell 5.1 on older Windows still defaults to TLS 1.0.
     $tls12 = [Net.SecurityProtocolType]::Tls12
@@ -428,6 +437,17 @@ function Invoke-WithRetry([scriptblock] $Action, [string] $Description, [int] $A
     }
 }
 
+function Get-Sha256([string] $Path) {
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '')
+    } finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 function Invoke-Download([string] $Url, [string] $OutFile, [string] $Sha256) {
     $partial = "$OutFile.partial"
     Invoke-WithRetry -Description "Downloading $Url" -Action {
@@ -435,7 +455,7 @@ function Invoke-Download([string] $Url, [string] $OutFile, [string] $Sha256) {
         Invoke-WebRequest -Uri $Url -OutFile $partial -UseBasicParsing -TimeoutSec 600
     }
     if ($Sha256) {
-        $actual = (Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash
+        $actual = Get-Sha256 $partial
         if ($actual -ne $Sha256) {
             Remove-Item -LiteralPath $partial -Force
             throw "Checksum mismatch for $Url (expected $Sha256, got $actual)."
@@ -670,6 +690,7 @@ function Get-JavaRuntime {
     }
 
     Write-Step "Downloading Eclipse Temurin $($release.Release) ($JavaPackage)"
+    $null = New-Item -ItemType Directory -Force -Path $Staging
     $zip = Join-Path $Staging $release.FileName
     Invoke-Download -Url $release.Url -OutFile $zip -Sha256 $release.Sha256
     $extracted = Join-Path $Staging 'java'
@@ -790,6 +811,7 @@ function Install-JenkinsAgent {
         Write-Warning 'The controller did not report its version (X-Jenkins header), so the Java version cannot be checked against it.'
     }
 
+    if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
     $replaced = @()
     foreach ($other in (Find-OtherAgentService -Name $ServiceId)) {
         if ($other.PathName.IndexOf($wrapperExe, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
@@ -801,16 +823,14 @@ function Install-JenkinsAgent {
     }
 
     # --- Download and check everything before touching the running service -----
-    if (-not (Test-Path -LiteralPath $InstallDir)) { $null = New-Item -ItemType Directory -Path $InstallDir }
-    if (Test-Path -LiteralPath $staging) { Remove-Item -LiteralPath $staging -Recurse -Force }
-    $null = New-Item -ItemType Directory -Path $staging
-
+    # A refused Java version (checked first) leaves the machine unchanged.
     $java = Get-JavaRuntime -JavaVersion $JavaVersion -JavaHome $JavaHome -JavaPackage $JavaPackage -JavaDir $javaDir `
         -Staging $staging -Line $line -JenkinsVersion $jenkinsVersion -Force $Force
     if ($UseWindowsTrustStore) { $JavaOptions = @('-Djavax.net.ssl.trustStoreType=Windows-ROOT') + @($JavaOptions) }
 
+    $null = New-Item -ItemType Directory -Force -Path $staging
     $stagedWrapper = $null
-    if ((Test-Path -LiteralPath $wrapperExe) -and (Get-FileHash -LiteralPath $wrapperExe -Algorithm SHA256).Hash -eq $script:WinSWSha256) {
+    if ((Test-Path -LiteralPath $wrapperExe) -and (Get-Sha256 $wrapperExe) -eq $script:WinSWSha256) {
         Write-Step 'WinSW v2.12.0 is up to date'
     } else {
         Write-Step 'Downloading WinSW v2.12.0'
@@ -957,6 +977,7 @@ function Invoke-Main([hashtable] $Options, [bool] $Uninstall, [bool] $ServiceIdG
     $ErrorActionPreference = 'Stop'
     $ProgressPreference = 'SilentlyContinue'
     Set-StrictMode -Version 2.0
+    Repair-ModulePath
     Assert-Prerequisite
     Enable-Tls12
     if ($Uninstall) {

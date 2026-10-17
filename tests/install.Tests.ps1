@@ -272,6 +272,32 @@ Describe 'Get-FailureHint' {
     }
 }
 
+Describe 'Get-Sha256' {
+    It 'hashes a file' {
+        $file = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString() + '.txt')
+        [System.IO.File]::WriteAllText($file, 'abc')
+        try {
+            Get-Sha256 $file | Should -Be 'BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD'
+        } finally {
+            Remove-Item -LiteralPath $file
+        }
+    }
+}
+
+Describe 'Repair-ModulePath' {
+    It 'drops PowerShell 7 module paths in Windows PowerShell' -Skip:($PSVersionTable.PSEdition -ne 'Desktop') {
+        $saved = $env:PSModulePath
+        try {
+            $env:PSModulePath = 'C:\Users\me\Documents\PowerShell\Modules;C:\Program Files\PowerShell\7\Modules;' +
+                'C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules'
+            Repair-ModulePath
+            $env:PSModulePath | Should -Be 'C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules'
+        } finally {
+            $env:PSModulePath = $saved
+        }
+    }
+}
+
 Describe 'Running the script' {
     BeforeAll {
         $script:shell = (Get-Process -Id $PID).Path
