@@ -99,6 +99,7 @@ jobs:
             expect-java: 11
             entry: file
             crash-recovery: true
+            wrong-secret: true
 
           - name: Java 17, Jenkins 2.541.3, WebSocket
             os: windows-2025
@@ -142,6 +143,7 @@ jobs:
             entry: iex
             websocket: true
             negative: true
+            wrong-secret: true
 
           - name: existing Java, Jenkins LTS
             os: windows-2022
@@ -207,10 +209,10 @@ jobs:
           if (Test-Path -LiteralPath $env:E2E_INSTALL_DIR) { throw 'The refused install created files' }
 
       - name: Fails clearly with a wrong secret
-        if: matrix.negative
+        if: matrix.wrong-secret
         run: >
           ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -Secret ('0' * 64) -ConnectTimeout 60
-          -ExpectFailure 'did not connect within 60 seconds'
+          -ExpectFailure 'did not connect within 60 seconds[\s\S]*Hint: The controller'
 
       - name: Install the agent (${{ matrix.entry }})
         run: ./tests/e2e/Invoke-AgentInstall.ps1
