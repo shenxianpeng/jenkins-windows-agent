@@ -2,15 +2,252 @@ name: Test
 
 on:
   push:
-    branches: main
+    branches: [main]
+  pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly, to notice new Jenkins, Temurin or runner image releases that break the installer.
+    - cron: '23 4 * * 1'
 
-jobs: 
-  test:
-    runs-on: windows-latest
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
 
-    - name: install and start jenkins agent
-      run: 
-        ./main.bat agent
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Force -Scope CurrentUser
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          $results | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String -Width 300 | Write-Host
+          if ($results) { exit 1 }
+
+      - name: Batch files use CRLF line endings
+        run: |
+          for f in $(git ls-files '*.bat' '*.cmd'); do
+            if grep -qU $'[^\r]$' "$f"; then echo "::error file=$f::$f must use CRLF line endings"; exit 1; fi
+          done
+
+  unit:
+    name: unit (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows PowerShell 5.1
+            os: windows-latest
+            shell: powershell
+          - name: PowerShell 7 on Windows
+            os: windows-latest
+            shell: pwsh
+          - name: PowerShell 7 on Linux
+            os: ubuntu-latest
+            shell: pwsh
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Pester
+        run: Install-Module Pester -RequiredVersion 6.2.0 -Force -SkipPublisherCheck -Scope CurrentUser
+
+      - name: Run unit tests
+        run: |
+          Import-Module Pester -RequiredVersion 6.2.0
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
+
+  e2e:
+    name: e2e (${{ matrix.name }})
+    needs: [lint, unit]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Java 8: the last LTS that supports it, its old agent.jar (-jnlpUrl),
+          # and spaces in the agent name and install directory, through main.bat.
+          - name: Java 8, Jenkins 2.346.3, main.bat
+            os: windows-2022
+            jenkins: 2.346.3
+            controller-java: 11
+            agent-java: '8'
+            expect-java: 8
+            entry: bat
+            agent: win agent 8
+            install-dir: C:\Jenkins Agent
+
+          - name: Java 11, Jenkins 2.462.3, crash recovery
+            os: windows-2022
+            jenkins: 2.462.3
+            controller-java: 17
+            agent-java: '11'
+            expect-java: 11
+            entry: file
+            crash-recovery: true
+
+          - name: Java 17, Jenkins 2.541.3, WebSocket
+            os: windows-2025
+            jenkins: 2.541.3
+            controller-java: 21
+            agent-java: '17'
+            expect-java: 17
+            entry: file
+            websocket: true
+
+          # Secured controller, service account, upgrade to Java 25, uninstall.
+          - name: Java 21, Jenkins LTS, service account, upgrade, uninstall
+            os: windows-2025
+            jenkins: lts
+            controller-java: 21
+            agent-java: '21'
+            expect-java: 21
+            entry: call
+            secured: true
+            service-account: true
+            upgrade-java: '25'
+            uninstall: true
+
+          - name: Java 25 JDK, Jenkins LTS, WebSocket, script block
+            os: windows-2025
+            jenkins: lts
+            controller-java: 25
+            agent-java: '25'
+            java-package: jdk
+            expect-java: 25
+            entry: scriptblock
+            websocket: true
+
+          # Java picked automatically; the README one-liner style; failure messages.
+          - name: auto Java, Jenkins weekly, irm | iex, failures
+            os: windows-latest
+            jenkins: weekly
+            controller-java: 21
+            agent-java: auto
+            expect-java: 21
+            entry: iex
+            websocket: true
+            negative: true
+
+          - name: existing Java, Jenkins LTS
+            os: windows-2022
+            jenkins: lts
+            controller-java: 21
+            agent-java: home
+            expect-java: 21
+            entry: file
+    env:
+      E2E_ENTRY: ${{ matrix.entry }}
+      E2E_AGENT_NAME: ${{ matrix.agent || 'win-e2e' }}
+      E2E_AGENT_JAVA: ${{ matrix.agent-java }}
+      E2E_JAVA_PACKAGE: ${{ matrix.java-package }}
+      E2E_INSTALL_DIR: ${{ matrix.install-dir || 'C:\jenkins-agent' }}
+      E2E_WEBSOCKET: ${{ matrix.websocket && 'true' || 'false' }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Java for the Jenkins controller
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.controller-java }}
+
+      - name: Resolve the Jenkins version
+        id: jenkins
+        run: |
+          $version = '${{ matrix.jenkins }}'
+          if ($version -eq 'lts') { $version = (Invoke-RestMethod https://updates.jenkins.io/stable/latestCore.txt).Trim() }
+          if ($version -eq 'weekly') { $version = (Invoke-RestMethod https://updates.jenkins.io/current/latestCore.txt).Trim() }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Jenkins $version"
+
+      - name: Cache jenkins.war
+        uses: actions/cache@v6
+        with:
+          path: ~/jenkins-cache
+          key: jenkins-${{ steps.jenkins.outputs.version }}-pimt-2.15.0
+
+      - name: Start the Jenkins controller
+        run: >
+          ./tests/e2e/Start-JenkinsController.ps1 -Version ${{ steps.jenkins.outputs.version }}
+          -WebSocket:$${{ matrix.websocket == true }} -Secured:$${{ matrix.secured == true }}
+
+      - name: Create a local account for the service
+        if: matrix.service-account
+        shell: powershell
+        run: |
+          $password = 'E2e!' + [guid]::NewGuid().ToString('N')
+          Write-Host "::add-mask::$password"
+          $secure = (New-Object System.Net.NetworkCredential('', $password)).SecurePassword
+          $null = New-LocalUser -Name e2e-agent -Password $secure -PasswordNeverExpires -AccountNeverExpires
+          Add-Content -Path $env:GITHUB_ENV -Value 'E2E_SERVICE_USER=.\e2e-agent', "E2E_SERVICE_PASSWORD=$password"
+
+      - name: Fails clearly when Java is too old for the controller
+        if: matrix.negative
+        run: ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -JavaVersion 17 -ExpectFailure 'requires Java 21 or newer'
+
+      - name: Fails clearly with a wrong secret
+        if: matrix.negative
+        run: >
+          ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -Secret ('0' * 64) -ConnectTimeout 60
+          -ExpectFailure 'did not connect within 60 seconds'
+
+      - name: Install the agent (${{ matrix.entry }})
+        run: ./tests/e2e/Invoke-AgentInstall.ps1
+
+      - name: Check the agent
+        run: ./tests/e2e/Test-Agent.ps1 -ExpectedJava ${{ matrix.expect-java }} -CrashRecovery:$${{ matrix.crash-recovery == true }}
+
+      - name: Run the installer again (idempotent)
+        run: ./tests/e2e/Invoke-AgentInstall.ps1
+
+      - name: Check the agent again
+        run: ./tests/e2e/Test-Agent.ps1 -ExpectedJava ${{ matrix.expect-java }}
+
+      - name: Upgrade to Java ${{ matrix.upgrade-java }}
+        if: matrix.upgrade-java
+        run: ./tests/e2e/Invoke-AgentInstall.ps1 -JavaVersion ${{ matrix.upgrade-java }}
+
+      - name: Check the upgraded agent
+        if: matrix.upgrade-java
+        run: ./tests/e2e/Test-Agent.ps1 -ExpectedJava ${{ matrix.upgrade-java }}
+
+      - name: Uninstall
+        if: matrix.uninstall
+        run: ./tests/e2e/Invoke-AgentInstall.ps1 -Uninstall
+
+      - name: Check the uninstall
+        if: matrix.uninstall
+        run: ./tests/e2e/Test-Agent.ps1 -ExpectUninstalled
+
+      - name: Show logs
+        if: failure()
+        run: |
+          $logs = @(
+            (Join-Path $env:RUNNER_TEMP 'jenkins-home\jenkins.err.log'),
+            (Join-Path $env:E2E_INSTALL_DIR 'logs\jenkins-agent.wrapper.log'),
+            (Join-Path $env:E2E_INSTALL_DIR 'logs\jenkins-agent.err.log'))
+          foreach ($log in $logs) {
+            if (Test-Path -LiteralPath $log) {
+              Write-Host "::group::$log"
+              Get-Content -LiteralPath $log -Tail 300
+              Write-Host '::endgroup::'
+            }
+          }
