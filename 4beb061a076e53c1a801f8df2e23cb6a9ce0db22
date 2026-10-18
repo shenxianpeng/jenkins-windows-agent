@@ -1,0 +1,21 @@
+.github/workflows/test.yml
+  s_01243091415d4f::t_1344010f35796d 176-178
+tests/e2e/Start-JenkinsController.ps1
+  s_01243091415d4f::t_1344010f35796d 72-76,99-101,104-114,116-121,127-129,150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4beb061a076e53c1a801f8df2e23cb6a9ce0db22",
+  "prompts": {},
+  "sessions": {
+    "s_01243091415d4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fe445208-68bb-4095-b1c8-bbcb5d7e8799",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
