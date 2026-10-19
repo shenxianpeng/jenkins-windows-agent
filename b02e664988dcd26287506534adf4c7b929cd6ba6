@@ -1,0 +1,45 @@
+ansible/inventory.example.yml
+  s_bca16f6d2a406c::t_283d41688f839c 1-29,31
+  s_bca16f6d2a406c::t_95c5298377d216 30
+README.md
+  s_bca16f6d2a406c::t_5e784be97b3f71 103,105-107
+  s_bca16f6d2a406c::t_66f956070c28bd 1-102,104,108-226
+PSScriptAnalyzerSettings.psd1
+  s_bca16f6d2a406c::t_ad1ced6c36e9b9 1-7,10-18
+  s_bca16f6d2a406c::t_e1234a96ecbf2e 8-9
+ansible/requirements.yml
+  s_bca16f6d2a406c::t_7f2d138ab1e024 1-4
+.gitignore
+  s_bca16f6d2a406c::t_3ebd12f55f3254 1-5
+ansible/playbook.yml
+  s_bca16f6d2a406c::t_27223d877cc24e 1-80
+tests/e2e.ps1
+  s_bca16f6d2a406c::t_51f2064d3e912b 122-126
+  s_bca16f6d2a406c::t_0d0443afd1c41d 1-121,127-148
+install.ps1
+  s_bca16f6d2a406c::t_ef482d48d5a97c 1-193,195-235,237-328,330-336,338-483,485-588,590-594,596-611,613-649,651-685,700,702-704,714,719
+  s_bca16f6d2a406c::t_e1234a96ecbf2e 236,329,337,484,589,612
+  s_bca16f6d2a406c::t_7ed6d2eb3dc7ec 689
+  s_bca16f6d2a406c::t_25d2b908bd4950 194,650,686-688,690-699,701,705-713,715-718,720-725
+  s_bca16f6d2a406c::t_7c968f44db9250 595
+.github/workflows/ci.yml
+  s_bca16f6d2a406c::t_dc7037b6ef875a 1-75
+.gitattributes
+  s_bca16f6d2a406c::t_dea17c772af51a 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b02e664988dcd26287506534adf4c7b929cd6ba6",
+  "prompts": {},
+  "sessions": {
+    "s_bca16f6d2a406c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ba2b6db4-81e4-4794-aebb-65a98fa201dc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
