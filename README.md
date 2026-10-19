@@ -205,6 +205,7 @@ Jenkins controller on a Windows runner, installs the agent the way a user would 
 | 21 | latest LTS | secured controller, local service account, upgrade to Java 25, uninstall |
 | 25 (JDK) | latest LTS | WebSocket, script block one-liner |
 | auto | latest weekly | `irm \| iex` one-liner, refusing a too old Java, wrong-secret diagnostics |
+| 21 | latest LTS | HTTPS with a private CA: refused without `-UseWindowsTrustStore`, connects with it |
 | existing (`-JavaHome`) | latest LTS | using a preinstalled Java |
 
 Every job also runs the installer a second time to check that it is idempotent. The workflow
