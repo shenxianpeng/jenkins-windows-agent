@@ -50,6 +50,7 @@ if ($Uninstall) {
     }
     if ($env:E2E_JAVA_PACKAGE) { $parameters.JavaPackage = $env:E2E_JAVA_PACKAGE }
     if ($env:E2E_WEBSOCKET -eq 'true') { $parameters.WebSocket = $true }
+    if ($env:E2E_WINDOWS_TRUSTSTORE -eq 'true') { $parameters.UseWindowsTrustStore = $true }
 }
 
 function ConvertTo-ArgumentList($Parameters) {

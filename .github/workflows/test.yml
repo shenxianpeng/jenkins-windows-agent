@@ -145,6 +145,17 @@ jobs:
             negative: true
             wrong-secret: true
 
+          # HTTPS with a certificate from a CA that Windows trusts but Java does not.
+          - name: Java 21, Jenkins LTS, HTTPS with a private CA
+            os: windows-2025
+            jenkins: lts
+            controller-java: 21
+            agent-java: '21'
+            expect-java: 21
+            entry: file
+            websocket: true
+            https: true
+
           - name: existing Java, Jenkins LTS
             os: windows-2022
             jenkins: lts
@@ -159,6 +170,7 @@ jobs:
       E2E_JAVA_PACKAGE: ${{ matrix.java-package }}
       E2E_INSTALL_DIR: ${{ matrix.install-dir || 'C:\jenkins-agent' }}
       E2E_WEBSOCKET: ${{ matrix.websocket && 'true' || 'false' }}
+      E2E_WINDOWS_TRUSTSTORE: ${{ matrix.https && 'true' || 'false' }}
     defaults:
       run:
         shell: pwsh
@@ -185,12 +197,13 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/jenkins-cache
-          key: jenkins-${{ steps.jenkins.outputs.version }}-pimt-2.15.0
+          # jenkins.war, the plugin manager and the plugins it downloaded.
+          key: jenkins-${{ steps.jenkins.outputs.version }}-${{ hashFiles('tests/e2e/Start-JenkinsController.ps1') }}
 
       - name: Start the Jenkins controller
         run: >
           ./tests/e2e/Start-JenkinsController.ps1 -Version ${{ steps.jenkins.outputs.version }}
-          -WebSocket:$${{ matrix.websocket == true }} -Secured:$${{ matrix.secured == true }}
+          -WebSocket:$${{ matrix.websocket == true }} -Secured:$${{ matrix.secured == true }} -Https:$${{ matrix.https == true }}
 
       - name: Create a local account for the service
         if: matrix.service-account
@@ -213,6 +226,14 @@ jobs:
         run: >
           ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -Secret ('0' * 64) -ConnectTimeout 60
           -ExpectFailure 'did not connect within 60 seconds[\s\S]*Hint: The controller'
+
+      - name: Fails clearly when Java does not trust the controller's certificate
+        if: matrix.https
+        env:
+          E2E_WINDOWS_TRUSTSTORE: 'false'
+        run: >
+          ./tests/e2e/Invoke-AgentInstall.ps1 -Entry file -ConnectTimeout 60
+          -ExpectFailure 'did not connect within 60 seconds[\s\S]*Hint: Java does not trust'
 
       - name: Install the agent (${{ matrix.entry }})
         run: ./tests/e2e/Invoke-AgentInstall.ps1
