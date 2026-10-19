@@ -1,0 +1,28 @@
+tests/e2e/Invoke-AgentInstall.ps1
+  s_01243091415d4f::t_a9b4f5eb8369a3 53
+tests/e2e/Start-JenkinsController.ps1
+  s_01243091415d4f::t_a9b4f5eb8369a3 105-108,129-131,166
+  s_01243091415d4f::t_11da1346fe891b 6-8,11-14,29-30,39-40,42,44-46,49-73,75-102,109-111,128,132,141-155,164-165,168,170,197
+  s_01243091415d4f::t_6fd71c8f65ec24 74,103-104,112,167,169
+.github/workflows/test.yml
+  s_01243091415d4f::t_a9b4f5eb8369a3 148-158,173,200-201,206,230-236
+  s_01243091415d4f::t_9a47cdb127a947 237
+README.md
+  s_01243091415d4f::t_a9b4f5eb8369a3 208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "25a1dc0e30252b212723694c08453369411868f8",
+  "prompts": {},
+  "sessions": {
+    "s_01243091415d4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fe445208-68bb-4095-b1c8-bbcb5d7e8799",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Xianpeng Shen <xianpeng.shen@gmail.com>"
+    }
+  }
+}
