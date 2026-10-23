@@ -20,7 +20,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: PSScriptAnalyzer
         shell: pwsh
@@ -56,7 +56,7 @@ jobs:
       run:
         shell: ${{ matrix.shell }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Pester
         run: Install-Module Pester -RequiredVersion 6.2.0 -Force -SkipPublisherCheck -Scope CurrentUser
@@ -175,10 +175,10 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Java for the Jenkins controller
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ matrix.controller-java }}
@@ -194,15 +194,17 @@ jobs:
           Write-Host "Jenkins $version"
 
       - name: Cache jenkins.war
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/jenkins-cache
           # jenkins.war, the plugin manager and the plugins it downloaded.
           key: jenkins-${{ steps.jenkins.outputs.version }}-${{ hashFiles('tests/e2e/Start-JenkinsController.ps1') }}
 
       - name: Start the Jenkins controller
+        env:
+          JENKINS_VERSION: ${{ steps.jenkins.outputs.version }}
         run: >
-          ./tests/e2e/Start-JenkinsController.ps1 -Version ${{ steps.jenkins.outputs.version }}
+          ./tests/e2e/Start-JenkinsController.ps1 -Version $env:JENKINS_VERSION
           -WebSocket:$${{ matrix.websocket == true }} -Secured:$${{ matrix.secured == true }} -Https:$${{ matrix.https == true }}
 
       - name: Create a local account for the service
